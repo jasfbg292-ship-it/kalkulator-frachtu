@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kalkulator Frachtu</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #F0F2F5; --card: #FFFFFF; --border: #DDE1E7;
+    --accent: #1A56DB; --accent-light: #EBF0FF;
+    --text: #111827; --muted: #6B7280;
+    --green: #059669; --green-bg: #ECFDF5;
+    --red: #DC2626; --red-bg: #FEF2F2;
+    --yellow: #D97706; --yellow-bg: #FFFBEB;
+    --radius: 10px;
+  }
+  body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 32px 16px; }
+  .container { max-width: 560px; margin: 0 auto; }
+  header { margin-bottom: 24px; }
+  header h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; }
+  header p  { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+  .fuel-banner {
+    border-radius: var(--radius); padding: 16px 18px; margin-bottom: 16px;
+    border: 1.5px solid var(--border); background: var(--card);
+    display: flex; align-items: flex-start; gap: 14px;
+  }
+  .fuel-banner.ok     { border-color: var(--green);  background: var(--green-bg); }
+  .fuel-banner.warn   { border-color: var(--red);    background: var(--red-bg);   }
+  .fuel-banner.nodate { border-color: var(--yellow); background: var(--yellow-bg);}
+  .fuel-banner.error  { border-color: var(--red);    background: var(--red-bg);   }
+  .fuel-icon  { font-size: 28px; line-height: 1; flex-shrink: 0; margin-top: 2px; }
+  .fuel-info  { flex: 1; min-width: 0; }
+  .fuel-lbl   { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.7px; color: var(--muted); margin-bottom: 2px; }
+  .fuel-pct   { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; margin: 2px 0 4px; }
+  .fuel-pct.ok     { color: var(--green); }
+  .fuel-pct.warn   { color: var(--red);   }
+  .fuel-pct.nodate { color: var(--yellow);}
+  .fuel-pct.loading{ color: var(--muted); font-size: 16px; }
+  .fuel-period { font-size: 12px; color: var(--muted); }
+  .fuel-period a { color: var(--accent); text-decoration: none; }
+  .fuel-period a:hover { text-decoration: underline; }
+  .fuel-validity { font-size: 12px; font-weight: 600; margin-top: 5px; }
+  .fuel-validity.ok     { color: var(--green); }
+  .fuel-validity.warn   { color: var(--red);   }
+  .fuel-validity.nodate { color: var(--yellow);}
+
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 16px; }
+  .card-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); margin-bottom: 18px; }
+  .field { margin-bottom: 16px; }
+  .field:last-child { margin-bottom: 0; }
+  label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+  input[type="number"], select {
+    width: 100%; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 7px;
+    font-size: 14px; font-family: 'Inter', sans-serif; color: var(--text); background: #FAFAFA;
+    transition: border-color .15s; outline: none; appearance: none; -webkit-appearance: none;
+  }
+  input[type="number"]:focus, select:focus { border-color: var(--accent); background: #fff; }
+  .input-wrap { position: relative; }
+  .input-wrap input { padding-right: 44px; }
+  .suffix { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 13px; color: var(--muted); pointer-events: none; }
+  select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center; padding-right: 36px; cursor: pointer;
+  }
+  .field-note { font-size: 11px; margin-top: 5px; color: var(--muted); }
+  .field-note.synced { color: var(--green); font-weight: 500; }
+  .field-note.error  { color: var(--red); }
+
+  .result-card { background: var(--accent); border-radius: var(--radius); padding: 24px; color: #fff; margin-bottom: 16px; }
+  .result-card .rlabel { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; opacity: .75; margin-bottom: 6px; }
+  .result-card .total  { font-size: 36px; font-weight: 700; letter-spacing: -1px; }
+
+  .breakdown { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 24px; }
+  .breakdown-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); padding: 14px 20px 12px; border-bottom: 1px solid var(--border); }
+  .brow { display: flex; justify-content: space-between; align-items: center; padding: 11px 20px; font-size: 13.5px; border-bottom: 1px solid #F3F4F6; }
+  .brow:last-child { border-bottom: none; }
+  .brow .name { color: var(--muted); }
+  .brow .val  { font-weight: 600; }
+  .brow.total-row { background: var(--accent-light); border-top: 1.5px solid var(--accent); }
+  .brow.total-row .name { font-weight: 700; color: var(--accent); font-size: 14px; }
+  .brow.total-row .val  { color: var(--accent); font-size: 15px; }
+  .badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 4px; background: var(--accent-light); color: var(--accent); margin-left: 6px; vertical-align: middle; }
+  .page-footer { text-align: center; font-size: 11px; color: var(--muted); padding-bottom: 16px; }
+  .page-footer a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Kalkulator Frachtu</h1>
+    <p>JAS-FBG — dodatek paliwowy aktualizowany automatycznie</p>
+  </header>
+
+  <div class="fuel-banner" id="fuelBanner">
+    <div class="fuel-icon" id="fuelIcon">⏳</div>
+    <div class="fuel-info">
+      <div class="fuel-lbl">Aktualny dodatek paliwowy JAS-FBG</div>
+      <div class="fuel-pct loading" id="fuelPct">Ładowanie…</div>
+      <div class="fuel-period" id="fuelPeriod"></div>
+      <div class="fuel-validity" id="fuelValidity"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Parametry przesyłki</div>
+    <div class="field">
+      <label>Ilość palet</label>
+      <div class="input-wrap">
+        <input type="number" id="pallets" min="1" value="10" oninput="calculate()">
+        <span class="suffix">szt.</span>
+      </div>
+    </div>
+    <div class="field">
+      <label>Stawka za paletę</label>
+      <div class="input-wrap">
+        <input type="number" id="rate" min="0" step="0.01" value="80.00" oninput="calculate()">
+        <span class="suffix">zł</span>
+      </div>
+    </div>
+    <div class="field">
+      <label>Typ naczepy / warunki temperaturowe</label>
+      <select id="trailerType" onchange="calculate()">
+        <option value="0">🚛 Standardowa naczepa — bez dopłaty</option>
+        <option value="0.10">❄️ Izotermia / Chłodnia — lato (+25°C) — dopłata 10%</option>
+        <option value="0.20">🌨️ Izotermia / Chłodnia — zima — dopłata 20%</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Dodatek paliwowy</label>
+      <div class="input-wrap">
+        <input type="number" id="fuel" min="0" max="100" step="0.1" value="31.5" oninput="calculate()">
+        <span class="suffix">%</span>
+      </div>
+      <div class="field-note" id="fuelNote">Pobieranie danych z GitHub…</div>
+    </div>
+  </div>
+
+  <div class="result-card">
+    <div class="rlabel">Łączny koszt frachtu</div>
+    <div class="total" id="totalDisplay">0,00 zł</div>
+  </div>
+
+  <div class="breakdown">
+    <div class="breakdown-title">Szczegółowe wyliczenie</div>
+    <div class="brow"><span class="name">Stawka bazowa</span><span class="val" id="b_base">—</span></div>
+    <div class="brow">
+      <span class="name">Dopłata izotermia / chłodnia <span class="badge" id="b_cold_badge">0%</span></span>
+      <span class="val" id="b_cold">—</span>
+    </div>
+    <div class="brow">
+      <span class="name">Emyto <span class="badge">20,59%</span></span>
+      <span class="val" id="b_toll">—</span>
+    </div>
+    <div class="brow">
+      <span class="name">Dodatek paliwowy <span class="badge" id="b_fuel_badge">0%</span></span>
+      <span class="val" id="b_fuel">—</span>
+    </div>
+    <div class="brow">
+      <span class="name">Ubezpieczenie <span class="badge" id="b_ins_badge">—</span></span>
+      <span class="val" id="b_ins">—</span>
+    </div>
+    <div class="brow total-row">
+      <span class="name">Razem</span>
+      <span class="val" id="b_total">—</span>
+    </div>
+  </div>
+
+  <div class="page-footer">
+    Dane paliwowe: <a href="https://www.jasfbg.com.pl/dokumenty/spedycja-drogowa-krajowa/" target="_blank">JAS-FBG S.A.</a>
+    &nbsp;·&nbsp; Automatyczna aktualizacja via GitHub Actions
+  </div>
+</div>
+
+<script>
+const TOLL = 0.2059;
+
+// ── WPISZ TUTAJ swoj login GitHub i nazwe repozytorium ──
+const GITHUB_USER = "jasfbg292-ship-it";
+const GITHUB_REPO = "kalkulator-frachtu";
+// ────────────────────────────────────────────────────────
+
+const FUEL_URL = `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/main/fuel.json`;
+
+function fmt(v) { return v.toFixed(2).replace('.', ',') + ' zł'; }
+
+function parsePolishDate(s) {
+  if (!s) return null;
+  const m = s.match(/(\d{1,2})\.(\d{2})\.(\d{4})/);
+  return m ? new Date(+m[3], +m[2]-1, +m[1]) : null;
+}
+function today() {
+  const d = new Date();
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+async function loadFuel() {
+  try {
+    const r = await fetch(FUEL_URL + '?t=' + Date.now());
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+
+    const pct     = parseFloat(d.percent);
+    const from    = parsePolishDate(d.dateFrom);
+    const to      = parsePolishDate(d.dateTo);
+    const now     = today();
+    const inRange = from && to && now >= from && now <= to;
+
+    document.getElementById('fuel').value = pct.toFixed(1);
+
+    const banner   = document.getElementById('fuelBanner');
+    const pctEl    = document.getElementById('fuelPct');
+    const periodEl = document.getElementById('fuelPeriod');
+    const validEl  = document.getElementById('fuelValidity');
+    const noteEl   = document.getElementById('fuelNote');
+    const iconEl   = document.getElementById('fuelIcon');
+
+    pctEl.textContent = pct.toFixed(2).replace('.', ',') + ' %';
+
+    if (d.pdfUrl && d.label) {
+      periodEl.innerHTML = '<a href="' + d.pdfUrl + '" target="_blank">' + d.label + '</a>';
+    } else {
+      periodEl.textContent = (d.dateFrom || '') + ' – ' + (d.dateTo || '');
+    }
+    if (d.updated) {
+      periodEl.innerHTML += '<br><span style="font-size:11px">Ostatnia aktualizacja: ' + d.updated + '</span>';
+    }
+
+    if (inRange) {
+      banner.className = 'fuel-banner ok';
+      iconEl.textContent = '✅';
+      pctEl.className = 'fuel-pct ok';
+      validEl.className = 'fuel-validity ok';
+      validEl.textContent = '✔ Aktualne — dzisiejsza data mieści się w przedziale obowiązywania.';
+      noteEl.textContent = '✓ Pobrano automatycznie z GitHub';
+      noteEl.className = 'field-note synced';
+    } else if (!from || !to) {
+      banner.className = 'fuel-banner nodate';
+      iconEl.textContent = '⚠️';
+      pctEl.className = 'fuel-pct nodate';
+      validEl.className = 'fuel-validity nodate';
+      validEl.textContent = '⚠ Nie można zweryfikować dat — sprawdź repozytorium GitHub.';
+      noteEl.className = 'field-note error';
+    } else {
+      banner.className = 'fuel-banner warn';
+      iconEl.textContent = '🔴';
+      pctEl.className = 'fuel-pct warn';
+      validEl.className = 'fuel-validity warn';
+      validEl.textContent = '⚠ UWAGA: dane są NIEAKTUALNE — JAS-FBG jeszcze nie opublikowało nowego PDF.';
+      noteEl.className = 'field-note error';
+    }
+  } catch(e) {
+    document.getElementById('fuelBanner').className = 'fuel-banner error';
+    document.getElementById('fuelIcon').textContent = '❌';
+    document.getElementById('fuelPct').className = 'fuel-pct warn';
+    document.getElementById('fuelPct').textContent = 'Brak danych';
+    document.getElementById('fuelValidity').className = 'fuel-validity warn';
+    document.getElementById('fuelValidity').textContent = 'Błąd pobierania danych z GitHub. Sprawdź połączenie lub konfigurację.';
+    document.getElementById('fuelNote').textContent = '⚠ Wpisz dodatek ręcznie.';
+    document.getElementById('fuelNote').className = 'field-note error';
+  }
+  calculate();
+}
+
+function calculate() {
+  const pallets = parseFloat(document.getElementById('pallets').value) || 0;
+  const rate    = parseFloat(document.getElementById('rate').value)    || 0;
+  const cold    = parseFloat(document.getElementById('trailerType').value) || 0;
+  const fuel    = (parseFloat(document.getElementById('fuel').value)   || 0) / 100;
+
+  const base          = pallets * rate;
+  const coldSurcharge = base * cold;
+  const tollBase      = base + coldSurcharge;
+  const toll          = tollBase * TOLL;
+  const afterToll     = tollBase + toll;
+  const fuelSurcharge = afterToll * fuel;
+  const insurance     = pallets >= 11 ? 8 : 2;
+  const total         = afterToll + fuelSurcharge + insurance;
+
+  document.getElementById('totalDisplay').textContent    = fmt(total);
+  document.getElementById('b_base').textContent          = fmt(base);
+  document.getElementById('b_cold').textContent          = cold > 0 ? fmt(coldSurcharge) : '0,00 zł';
+  document.getElementById('b_cold_badge').textContent    = (cold * 100).toFixed(0) + '%';
+  document.getElementById('b_toll').textContent          = fmt(toll);
+  document.getElementById('b_fuel').textContent          = fmt(fuelSurcharge);
+  document.getElementById('b_fuel_badge').textContent    = (fuel * 100).toFixed(1) + '%';
+  document.getElementById('b_ins').textContent           = fmt(insurance);
+  document.getElementById('b_ins_badge').textContent     = pallets >= 11 ? '≥11 palet' : '<11 palet';
+  document.getElementById('b_total').textContent         = fmt(total);
+}
+
+loadFuel();
+</script>
+</body>
+</html>
