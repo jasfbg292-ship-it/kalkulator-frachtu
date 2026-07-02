@@ -69,6 +69,17 @@
   .field-note.synced { color: var(--green); font-weight: 500; }
   .field-note.error  { color: var(--red); }
 
+  /* Pole ryczałt — ukryte domyślnie */
+  .field-ryczalt { display: none; }
+  .field-ryczalt.visible { display: block; }
+  .field-palety-rate { display: block; }
+  .field-palety-rate.hidden { display: none; }
+
+  /* Info o trybie liczenia */
+  .mode-info { font-size: 12px; font-weight: 600; padding: 8px 12px; border-radius: 6px; margin-top: 8px; }
+  .mode-info.ryczalt { background: #FEF3C7; color: #92400E; }
+  .mode-info.palety  { background: var(--accent-light); color: var(--accent); }
+
   .result-card { background: var(--accent); border-radius: var(--radius); padding: 24px; color: #fff; margin-bottom: 16px; }
   .result-card .rlabel { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; opacity: .75; margin-bottom: 6px; }
   .result-card .total  { font-size: 36px; font-weight: 700; letter-spacing: -1px; }
@@ -83,6 +94,7 @@
   .brow.total-row .name { font-weight: 700; color: var(--accent); font-size: 14px; }
   .brow.total-row .val  { color: var(--accent); font-size: 15px; }
   .badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 4px; background: var(--accent-light); color: var(--accent); margin-left: 6px; vertical-align: middle; }
+
   .page-footer { text-align: center; font-size: 11px; color: var(--muted); padding-bottom: 16px; }
   .page-footer a { color: var(--accent); }
 </style>
@@ -106,20 +118,34 @@
 
   <div class="card">
     <div class="card-title">Parametry przesyłki</div>
+
     <div class="field">
       <label>Ilość palet</label>
       <div class="input-wrap">
-        <input type="number" id="pallets" min="1" value="10" oninput="calculate()">
+        <input type="number" id="pallets" min="1" max="33" value="10" oninput="onPalletsChange()">
         <span class="suffix">szt.</span>
       </div>
+      <div class="mode-info palety" id="modeInfo">📦 Stawka: ilość palet × stawka za paletę (do 27 palet)</div>
     </div>
-    <div class="field">
+
+    <!-- Pole widoczne dla ≤27 palet -->
+    <div class="field field-palety-rate" id="fieldRate">
       <label>Stawka za paletę</label>
       <div class="input-wrap">
         <input type="number" id="rate" min="0" step="0.01" value="80.00" oninput="calculate()">
         <span class="suffix">zł</span>
       </div>
     </div>
+
+    <!-- Pole widoczne dla 28–33 palet -->
+    <div class="field field-ryczalt" id="fieldRyczalt">
+      <label>Stawka ryczałtowa za cały fracht</label>
+      <div class="input-wrap">
+        <input type="number" id="ryczalt" min="0" step="0.01" value="0.00" oninput="calculate()">
+        <span class="suffix">zł</span>
+      </div>
+    </div>
+
     <div class="field">
       <label>Typ naczepy / warunki temperaturowe</label>
       <select id="trailerType" onchange="calculate()">
@@ -128,6 +154,7 @@
         <option value="0.20">🌨️ Izotermia / Chłodnia — zima — dopłata 20%</option>
       </select>
     </div>
+
     <div class="field">
       <label>Dodatek paliwowy</label>
       <div class="input-wrap">
@@ -145,7 +172,7 @@
 
   <div class="breakdown">
     <div class="breakdown-title">Szczegółowe wyliczenie</div>
-    <div class="brow"><span class="name">Stawka bazowa</span><span class="val" id="b_base">—</span></div>
+    <div class="brow"><span class="name" id="b_base_label">Stawka bazowa</span><span class="val" id="b_base">—</span></div>
     <div class="brow">
       <span class="name">Dopłata izotermia / chłodnia <span class="badge" id="b_cold_badge">0%</span></span>
       <span class="val" id="b_cold">—</span>
@@ -176,12 +203,8 @@
 
 <script>
 const TOLL = 0.2059;
-
-// ── WPISZ TUTAJ swoj login GitHub i nazwe repozytorium ──
 const GITHUB_USER = "jasfbg292-ship-it";
 const GITHUB_REPO = "kalkulator-frachtu";
-// ────────────────────────────────────────────────────────
-
 const FUEL_URL = `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/main/fuel.json`;
 
 function fmt(v) { return v.toFixed(2).replace('.', ',') + ' zł'; }
@@ -194,6 +217,72 @@ function parsePolishDate(s) {
 function today() {
   const d = new Date();
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+function isRyczalt() {
+  const pallets = parseFloat(document.getElementById('pallets').value) || 0;
+  return pallets >= 28 && pallets <= 33;
+}
+
+function onPalletsChange() {
+  const pallets = parseFloat(document.getElementById('pallets').value) || 0;
+  const ryczalt = isRyczalt();
+
+  // Przełącz widoczność pól
+  document.getElementById('fieldRate').className    = 'field field-palety-rate' + (ryczalt ? ' hidden' : '');
+  document.getElementById('fieldRyczalt').className = 'field field-ryczalt'     + (ryczalt ? ' visible' : '');
+
+  // Info o trybie
+  const modeEl = document.getElementById('modeInfo');
+  if (ryczalt) {
+    modeEl.className = 'mode-info ryczalt';
+    modeEl.textContent = '🚛 Stawka ryczałtowa za cały fracht (28–33 palety)';
+  } else if (pallets <= 27) {
+    modeEl.className = 'mode-info palety';
+    modeEl.textContent = '📦 Stawka: ilość palet × stawka za paletę (do 27 palet)';
+  } else {
+    modeEl.className = 'mode-info palety';
+    modeEl.textContent = '';
+  }
+
+  calculate();
+}
+
+function calculate() {
+  const pallets  = parseFloat(document.getElementById('pallets').value)  || 0;
+  const cold     = parseFloat(document.getElementById('trailerType').value) || 0;
+  const fuel     = (parseFloat(document.getElementById('fuel').value)    || 0) / 100;
+  const ryczalt  = isRyczalt();
+
+  // Stawka bazowa — zależy od liczby palet
+  let base;
+  if (ryczalt) {
+    base = parseFloat(document.getElementById('ryczalt').value) || 0;
+    document.getElementById('b_base_label').textContent = 'Stawka ryczałtowa (28–33 palet)';
+  } else {
+    const rate = parseFloat(document.getElementById('rate').value) || 0;
+    base = pallets * rate;
+    document.getElementById('b_base_label').textContent = 'Stawka bazowa (' + pallets + ' palet × stawka)';
+  }
+
+  const coldSurcharge = base * cold;
+  const tollBase      = base + coldSurcharge;
+  const toll          = tollBase * TOLL;
+  const afterToll     = tollBase + toll;
+  const fuelSurcharge = afterToll * fuel;
+  const insurance     = pallets >= 11 ? 8 : 2;
+  const total         = afterToll + fuelSurcharge + insurance;
+
+  document.getElementById('totalDisplay').textContent    = fmt(total);
+  document.getElementById('b_base').textContent          = fmt(base);
+  document.getElementById('b_cold').textContent          = cold > 0 ? fmt(coldSurcharge) : '0,00 zł';
+  document.getElementById('b_cold_badge').textContent    = (cold * 100).toFixed(0) + '%';
+  document.getElementById('b_toll').textContent          = fmt(toll);
+  document.getElementById('b_fuel').textContent          = fmt(fuelSurcharge);
+  document.getElementById('b_fuel_badge').textContent    = (fuel * 100).toFixed(1) + '%';
+  document.getElementById('b_ins').textContent           = fmt(insurance);
+  document.getElementById('b_ins_badge').textContent     = pallets >= 11 ? '≥11 palet' : '<11 palet';
+  document.getElementById('b_total').textContent         = fmt(total);
 }
 
 async function loadFuel() {
@@ -257,38 +346,11 @@ async function loadFuel() {
     document.getElementById('fuelPct').className = 'fuel-pct warn';
     document.getElementById('fuelPct').textContent = 'Brak danych';
     document.getElementById('fuelValidity').className = 'fuel-validity warn';
-    document.getElementById('fuelValidity').textContent = 'Błąd pobierania danych z GitHub. Sprawdź połączenie lub konfigurację.';
+    document.getElementById('fuelValidity').textContent = 'Błąd pobierania danych z GitHub.';
     document.getElementById('fuelNote').textContent = '⚠ Wpisz dodatek ręcznie.';
     document.getElementById('fuelNote').className = 'field-note error';
   }
   calculate();
-}
-
-function calculate() {
-  const pallets = parseFloat(document.getElementById('pallets').value) || 0;
-  const rate    = parseFloat(document.getElementById('rate').value)    || 0;
-  const cold    = parseFloat(document.getElementById('trailerType').value) || 0;
-  const fuel    = (parseFloat(document.getElementById('fuel').value)   || 0) / 100;
-
-  const base          = pallets * rate;
-  const coldSurcharge = base * cold;
-  const tollBase      = base + coldSurcharge;
-  const toll          = tollBase * TOLL;
-  const afterToll     = tollBase + toll;
-  const fuelSurcharge = afterToll * fuel;
-  const insurance     = pallets >= 11 ? 8 : 2;
-  const total         = afterToll + fuelSurcharge + insurance;
-
-  document.getElementById('totalDisplay').textContent    = fmt(total);
-  document.getElementById('b_base').textContent          = fmt(base);
-  document.getElementById('b_cold').textContent          = cold > 0 ? fmt(coldSurcharge) : '0,00 zł';
-  document.getElementById('b_cold_badge').textContent    = (cold * 100).toFixed(0) + '%';
-  document.getElementById('b_toll').textContent          = fmt(toll);
-  document.getElementById('b_fuel').textContent          = fmt(fuelSurcharge);
-  document.getElementById('b_fuel_badge').textContent    = (fuel * 100).toFixed(1) + '%';
-  document.getElementById('b_ins').textContent           = fmt(insurance);
-  document.getElementById('b_ins_badge').textContent     = pallets >= 11 ? '≥11 palet' : '<11 palet';
-  document.getElementById('b_total').textContent         = fmt(total);
 }
 
 loadFuel();
